@@ -19,6 +19,7 @@ def validate(args):
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
     data_path = get_data_path(args.dataset)
+    print(data_path)
     loader = data_loader(data_path, split=args.split, is_transform=True, img_size=(args.img_rows, args.img_cols))
     n_classes = loader.n_classes
     valloader = data.DataLoader(loader, batch_size=args.batch_size, num_workers=4)
