@@ -11,8 +11,12 @@ from torch.autograd import Variable
 from torch.utils import data
 from tqdm import tqdm
 
+from ptsemseg.models import get_model
 from ptsemseg.loader import get_loader, get_data_path
-from ptsemseg.metrics import scores
+from ptsemseg.metrics import runningScore
+from ptsemseg.utils import convert_state_dict
+
+torch.backends.cudnn.benchmark = True
 
 def validate(args):
 
@@ -23,30 +27,26 @@ def validate(args):
     loader = data_loader(data_path, split=args.split, is_transform=True, img_size=(args.img_rows, args.img_cols))
     n_classes = loader.n_classes
     valloader = data.DataLoader(loader, batch_size=args.batch_size, num_workers=4)
+    running_metrics = runningScore(n_classes)
 
     # Setup Model
-    model = torch.load(args.model_path)
+    model = get_model(args.model_path[:args.model_path.find('_')], n_classes)
+    state = convert_state_dict(torch.load(args.model_path)['model_state'])
+    model.load_state_dict(state)
     model.eval()
 
-    gts, preds = [], []
     for i, (images, labels) in tqdm(enumerate(valloader)):
-        if torch.cuda.is_available():
-            model.cuda()
-            images = Variable(images.cuda())
-            labels = Variable(labels.cuda())
-        else:
-            images = Variable(images)
-            labels = Variable(labels)
+        model.cuda()
+        images = Variable(images.cuda(), volatile=True)
+        labels = Variable(labels.cuda(), volatile=True)
 
         outputs = model(images)
         pred = outputs.data.max(1)[1].cpu().numpy()
         gt = labels.data.cpu().numpy()
         
-        for gt_, pred_ in zip(gt, pred):
-            gts.append(gt_)
-            preds.append(pred_)
+        running_metrics.update(gt, pred)
 
-    score, class_iou = scores(gts, preds, n_class=n_classes)
+    score, class_iou = running_metrics.get_scores()
 
     for k, v in score.items():
         print(k, v)

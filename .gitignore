@@ -7,6 +7,7 @@ predict_results/
 
 # Torch Models
 *.pkl
+current_train.py
 
 # C extensions
 *.so
