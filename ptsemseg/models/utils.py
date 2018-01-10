@@ -66,7 +66,7 @@ class unetConv2(nn.Module):
                                        nn.BatchNorm2d(out_size),
                                        nn.ReLU(),)
             self.conv2 = nn.Sequential(nn.Conv2d(out_size, out_size, 3, 1, 0),
-                                       nn.BatchNorm2d(out_size),
+                                           nn.BatchNorm2d(out_size),
                                        nn.ReLU(),)
         else:
             self.conv1 = nn.Sequential(nn.Conv2d(in_size, out_size, 3, 1, 0),
@@ -89,9 +89,11 @@ class unetUp(nn.Module):
             self.up = nn.UpsamplingBilinear2d(scale_factor=2)
 
     def forward(self, inputs1, inputs2):
+
         outputs2 = self.up(inputs2)
         offset = outputs2.size()[2] - inputs1.size()[2]
         padding = 2 * [offset // 2, offset // 2]
+
         outputs1 = F.pad(inputs1, padding)
         return self.conv(torch.cat([outputs1, outputs2], 1))
 

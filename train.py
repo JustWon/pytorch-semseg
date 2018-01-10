@@ -63,9 +63,11 @@ def train(args):
                     update='append')
 
             if (i+1) % 20 == 0:
-                print("Epoch [%d/%d] Loss: %.4f" % (epoch+1, args.n_epoch, loss.data[0]))
+                print("%s / Epoch [%d/%d] Loss: %.4f" % (args.arch, epoch+1, args.n_epoch, loss.data[0]))
 
-        torch.save(model, "{}_{}_{}_{}.pkl".format(args.arch, args.dataset, args.feature_scale, epoch))
+        # torch.save(model, "{}_{}_{}_{}.pkl".format(args.arch, args.dataset, args.feature_scale, epoch))
+        torch.save(model, "{}_{}_{}.pkl".format(args.arch, args.dataset, args.feature_scale))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
