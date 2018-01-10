@@ -3,9 +3,11 @@ weights/
 __pycache__/
 *.py[cod]
 *$py.class
+predict_results/
 
 # Torch Models
 *.pkl
+current_train.py
 
 # C extensions
 *.so

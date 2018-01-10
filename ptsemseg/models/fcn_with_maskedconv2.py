@@ -225,11 +225,27 @@ class fcn16s(nn.Module):
             l2.bias.data = l1.bias.data[:n_class]
 
 
+
+class MaskedConv2d(nn.Conv2d):
+    def __init__(self, mask_type, *args, **kwargs):
+        super(MaskedConv2d, self).__init__(*args, **kwargs)
+        assert mask_type in {'A', 'B'}
+        self.register_buffer('mask', self.weight.data.clone())
+        _, _, kH, kW = self.weight.size()
+        self.mask.fill_(1)
+        self.mask[:, :, kH // 2, kW // 2 + (mask_type == 'B'):] = 0
+        self.mask[:, :, kH // 2 + 1:] = 0
+
+    def forward(self, x):
+        self.weight.data *= self.mask
+        return super(MaskedConv2d, self).forward(x)
+
+
 # FCN 8s
-class fcn8s(nn.Module):
+class fcn_with_maskedconv2(nn.Module):
 
     def __init__(self, n_classes=21, learned_billinear=False):
-        super(fcn8s, self).__init__()
+        super(fcn_with_maskedconv2, self).__init__()
         self.learned_billinear = learned_billinear
         self.n_classes = n_classes
 
@@ -239,6 +255,18 @@ class fcn8s(nn.Module):
             nn.Conv2d(64, 64, 3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, stride=2, ceil_mode=True),)
+
+        fm = 64
+        self.pixelcnn = nn.Sequential(
+            MaskedConv2d('A', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            # MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            # MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            # MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            # MaskedConv2d('B', fm, fm, 7, 1, 3, bias=False), nn.BatchNorm2d(fm), nn.ReLU(True),
+            )
 
         self.conv_block2 = nn.Sequential(
             nn.Conv2d(64, 128, 3, padding=1),
@@ -274,6 +302,7 @@ class fcn8s(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, stride=2, ceil_mode=True),)
 
+
         self.classifier = nn.Sequential(
             nn.Conv2d(512, 4096, 7),
             nn.ReLU(inplace=True),
@@ -293,8 +322,10 @@ class fcn8s(nn.Module):
             # upscore.scale_factor = None
 
     def forward(self, x):
+
         conv1 = self.conv_block1(x)
-        conv2 = self.conv_block2(conv1)
+        maskedconv = self.pixelcnn(conv1)
+        conv2 = self.conv_block2(maskedconv)
         conv3 = self.conv_block3(conv2)
         conv4 = self.conv_block4(conv3)
         conv5 = self.conv_block5(conv4)
